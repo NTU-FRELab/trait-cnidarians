@@ -23,8 +23,7 @@ library(factoextra)
 library(FactoMineR)
 library(paletteer)
 
-setwd("D:/Projet/These_FRE_Lab/Axe1/Stats/Stat_Axe1/Final_R_code")
-comp<-read.table("data.txt", header = T, sep = "", dec = ".")
+comp<-read.table("data/data.txt", header = T, sep = "", dec = ".")
 row.names(comp)=comp$sample_no
 row.names(comp)=comp$sample_no
 comp$sample_no=NULL
