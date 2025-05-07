@@ -543,7 +543,7 @@ m
 grid.arrange(a,b,c,d,e,f,g,h,i,j,k,l,m, ncol=5, nrow = 3)
 
 ###########ADD DEPALMAS DATA############
-comp<-read.table("Data_DePalmas.txt", header = T, sep = "", dec = ".")
+comp<-read.table("data/Data_DePalmas.txt", header = T, sep = "", dec = ".")
 row.names(comp)=comp$sample_no
 comp$sample_no=NULL
 
