@@ -22,6 +22,8 @@ library(ggpubr)
 library(factoextra)
 library(FactoMineR)
 library(paletteer)
+library(multcompView)
+
 
 comp<-read.table("data/data.txt", header = T, sep = "", dec = ".")
 row.names(comp)=comp$sample_no
