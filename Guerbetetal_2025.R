@@ -1226,7 +1226,6 @@ i=ggplot(comp, aes(x = species, y = chlca, fill = region)) +
   theme(
     axis.text.x = element_text(face = "italic"),
     legend.position = "none")
-i
 
 #Host.prot.cont
 species_list <- unique(comp$species)
