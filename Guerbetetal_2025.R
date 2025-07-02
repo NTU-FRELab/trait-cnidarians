@@ -1,0 +1,1305 @@
+# Data Handling
+library(dplyr)
+library(tidyr)
+library(readr)
+library(tibble)
+library(tidyverse)
+library(magrittr)
+# Statistical Analysis
+library(vegan)
+library(coin)
+library(rstatix)
+library(multcompView)
+library(pairwiseAdonis)
+# Functional Diversity & Trait Space
+library(funspace)
+library(mFD)
+# Clustering
+library(NbClust)
+library(stats)  # Base R, but included for clarity
+# PCA and Visualizations.
+library(ggplot2)
+library(ggpubr)
+library(factoextra)
+library(FactoMineR)
+library(paletteer)
+library(knitr)
+library(rcompanion)
+library(gridExtra)
+library(RColorBrewer)
+
+
+
+data<-read.table("Data.txt", header = T, sep = "", dec = ".")
+row.names(data)=data$sample_no
+data$sample_no=NULL
+#Keep only Guerbet_et_al samples
+comp=data[194:312,]
+
+funspaceDim(comp[,7:19])
+pca.trait=princomp(comp[,7:19], cor = TRUE)
+
+#Global
+trait_space_global=funspace(x = pca.trait, PCs = c(1,2), n_divisions = 300)
+summary(trait_space_global)
+par(mfrow = c(1,1))
+plot(x = trait_space_global, # funspace object
+     type = "global",
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.9, # points should be small
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.5),# plot the global TPD
+     quant.plot = TRUE, # add quantile lines
+     arrows = T, # add arrows for PCA loadings
+     arrows.length = 0.9) # make arrows a bit shorter than the default.
+
+#Order
+trait_space_order= funspace(pca.trait, PCs = c(1,2), group.vec = comp$Order,
+                            n_divisions = 300)
+summary(trait_space_order)
+par(mfrow = c(3,3), mar = c(4,4,1,1), mgp = c(2.5, 0.7, 0))
+plot(x = trait_space_order,
+     type = "groups", # a plot for each group (family)
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.8, # points should be small
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8))
+
+#species
+trait_space_species = funspace(pca.trait, PCs = c(1,2), group.vec = comp$species,
+                               n_divisions = 300)
+summary(trait_space_species)
+par(mfrow = c(5,3), mar = c(4,4,1,1), mgp = c(2.5, 0.7, 0))
+plot(x = trait_space_species,
+     type = "groups",
+     quant.plot = TRUE,
+     globalContour = TRUE,
+     pnt = TRUE,
+     pnt.cex = 0.1,
+     pnt.col = rgb(0.2, 0.8, 0.1, alpha = 0.2),
+     repel = TRUE,
+     main = expression(italic("Trait space per family")))
+
+#Permanova
+# Data Preparation
+scaled_data <- scale(comp[,7:19])  # Standardize excluding species column
+# Dissimilarity Matrix
+dist_matrix <- vegdist(scaled_data, method = "euclidean")
+# Test
+adonis_result <- adonis2(dist_matrix ~ species, data = comp)
+print(adonis_result)#0.001 ***
+#Pairwise
+pair.mod<-pairwise.adonis(dist_matrix,factors=comp$species)
+pair.mod
+
+trait_data=comp[,c(-2,-3,-4,-5,-6)]
+
+# Separate trait data from species identifiers
+traits <- trait_data[, 2:14]
+species <- trait_data$species
+
+# Step 1: Create a functional space from continuous traits
+fspace <- tr.cont.fspace(
+  sp_tr        = traits, 
+  pca          = TRUE, 
+  nb_dim       = 10, 
+  scaling      = 'scale_center',
+  compute_corr = 'pearson')
+
+print(fspace$eigenvalues_percentage_var)
+# Inspect mSD values
+detailmSD=fspace$quality_metrics[1:9,2]
+print(detailmSD)
+plot(detailmSD, type = "b", xlab = "Number of Dimensions", ylab = "Mean Squared Deviation")
+
+# Create the presence-absence matrix for each species
+unique_species <- unique(species)
+abundance_matrix <- matrix(0, nrow = length(unique_species), ncol = nrow(traits))
+rownames(abundance_matrix) <- unique_species
+colnames(abundance_matrix) <- rownames(traits)
+
+for (i in 1:length(unique_species)) {
+  sp <- unique_species[i]
+  abundance_matrix[i, species == sp] <- 1  # Mark presence (1) for individuals of this species
+}
+
+# Ensure matrix is numeric
+abundance_matrix <- as.numeric(abundance_matrix)
+dim(abundance_matrix) <- c(length(unique_species), nrow(traits))
+rownames(abundance_matrix) <- unique_species
+colnames(abundance_matrix) <- rownames(traits)
+
+# Step 2: Compute alpha dtraits# Step 2: Compute alpha diversity metrics in the multidimensional functional space
+# community_data should be a matrix or data frame with species presence/abundance in sites
+
+sp_faxes_coord <- fspace$sp_faxes_coord
+
+alpha_index=alpha.fd.multidim(sp_faxes_coord   = sp_faxes_coord[, c('PC1', 'PC2')],
+                              asb_sp_w         = abundance_matrix, 
+                              ind_vect         = c('feve', 'fric', 'fdiv', 'fori','fspe', 'fide','fdis'),
+                              scaling          = TRUE, 
+                              check_input      = TRUE, 
+                              details_returned = TRUE)
+
+
+# Retrieve alpha diversity indices table
+fd_ind_values <- alpha_index$functional_diversity_indices
+fd_ind_values
+
+df <- scale(comp[,7:19]) # Scaling the data
+df=as.matrix(df)
+pca_result <- prcomp(df, scale. = TRUE)
+
+# Extract PCA scores
+pca_scores <- as.data.frame(pca_result$x)
+pca_scores$Sample <- rownames(comp)
+
+res<-NbClust(data = na.omit(df), diss = NULL, distance = "euclidean",
+             min.nc = 2, max.nc = 15, method = "kmeans", index="all", alphaBeale = 0.05)
+
+# Optimal number of clusters (from NbClust)
+optimal_clusters <- res$Best.partition
+comp$cluster=optimal_clusters
+
+#PERMANOVA
+scaled_data <- scale(comp[,7:19])  # Standardize excluding species column
+dist_matrix <- vegdist(scaled_data, method = "euclidean")
+adonis_result <- adonis2(dist_matrix ~ cluster, data = comp)
+print(adonis_result)
+
+#Plot k=2
+km.res2 <- kmeans(na.omit(df), 2, nstart = 50)
+res.pca <- prcomp(na.omit(df),  scale = TRUE)
+ind.coord <- as.data.frame(get_pca_ind(res.pca)$coord)
+ind.coord$cluster <- factor(km.res2$cluster)
+ind.coord$Species <- na.omit(comp)$species
+eigenvalue <- round(get_eigenvalue(res.pca), 1)
+variance.percent <- eigenvalue$variance.percent
+head(eigenvalue)
+ggscatter(ind.coord, x = "Dim.1", y = "Dim.2",
+          color = "cluster", 
+          palette = paletteer_d("MoMAColors::Abbott"),
+          ellipse = TRUE, ellipse.type = "convex",
+          shape = "Species", size = 2,  legend = "right",
+          xlab = paste0("Dim 1 (", variance.percent[1], "% )"),
+          ylab = paste0("Dim 2 (", variance.percent[2], "% )")) +
+  scale_shape_manual(values = c(0:12)) +
+  stat_mean(aes(color = cluster), size = 4) +
+  theme(legend.text = element_text(face = "italic"))
+
+###Delta15N
+# Ensure sp is a factor
+comp$sp <- as.factor(comp$sp)
+comp_clean <- comp %>% drop_na(Delta15N)
+# Compute distance matrix (euclidean by default)
+dist_mat <- dist(comp_clean$Delta15N)
+# Step 2: Max Delta15N per species
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(Delta15N, na.rm = TRUE))
+# Run adonis2 using distance matrix
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+# Show results
+print(kruskal_perm)
+# Step 3: Perform pairwise permutation Wilcoxon tests using coin package
+# Perform all pairwise comparisons using 'coin' package
+pairwise_pvals <- pairwise.wilcox.test(comp$Delta15N, comp$sp,
+                                       p.adjust.method = "BH")
+# Step 4: Convert pairwise results to data frame
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+# Step 5: Get compact letter display (significance letters)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+# Step 6: Merge significance letters into max values
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+# Step 7: Plot
+a=ggplot(data = comp, aes(x = sp, y = Delta15N, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title = "Host δ15N", x = "", y = "‰") +
+  theme(legend.position = 'none')+
+  ylim(0,max(comp$Delta15N)+1)
+
+###Delta13C
+comp_clean <- comp %>% drop_na(Delta13C)
+dist_mat <- dist(comp_clean$Delta13C)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(Delta13C, na.rm = TRUE))
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$Delta13C, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+b=ggplot(data = comp, aes(x = sp, y = Delta13C, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5)  +
+  labs(title = "Host δ13C", x = "", y = "‰") +
+  theme(legend.position = 'none')
+
+###ratio.C.N
+comp_clean <- comp %>% drop_na(ratio.C.N)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(ratio.C.N, na.rm = TRUE))
+dist_mat <- dist(comp_clean$ratio.C.N)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$ratio.C.N, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+c=ggplot(data = comp, aes(x = sp, y = ratio.C.N, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5)  +
+  labs(title = "Host C:N ratio", x = "", y = "Ratio") +
+  theme(legend.position = 'none')+
+  ylim(0,max(comp$ratio.C.N)+1)
+
+###Z.dens
+comp_clean <- comp %>% drop_na(Z.dens)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(Z.dens, na.rm = TRUE))
+dist_mat <- dist(comp_clean$Z.dens)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$Z.dens, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+d=ggplot(data = comp, aes(x = sp, y = Z.dens, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5)  +
+  labs(title="Zooxanthellae density", x="", y = "cell mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###C.dens
+comp_clean <- comp %>% drop_na(C.dens)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(C.dens, na.rm = TRUE))
+dist_mat <- dist(comp_clean$C.dens)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$C.dens, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+e=ggplot(data = comp, aes(x = sp, y = C.dens, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5)  +
+  labs(title="Cnidocyte density", x="", y = "cell mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###chla
+comp_clean <- comp %>% drop_na(chla)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(chla, na.rm = TRUE))
+dist_mat <- dist(comp_clean$chla)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$chla, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+f=ggplot(data = comp, aes(x = sp, y = chla, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title="Chlorophyll-a content", x="", y = "ug.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###chlb
+comp_clean <- comp %>% drop_na(chlb)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(chlb, na.rm = TRUE))
+dist_mat <- dist(comp_clean$chlb)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$chlb, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+g=ggplot(data = comp, aes(x = sp, y = chlb, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5)  +
+  labs(title="Chlorophyll-b content", x="", y = "ug.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###chlc
+comp_clean <- comp %>% drop_na(chlc)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(chlc, na.rm = TRUE))
+dist_mat <- dist(comp_clean$chlc)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$chlc, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+h=ggplot(data = comp, aes(x = sp, y = chlc, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title="Chlorophyll-c content", x="", y = "ug.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###chlca
+comp_clean <- comp %>% drop_na(chlca)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(chlca, na.rm = TRUE))
+dist_mat <- dist(comp_clean$chlca)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$chlca, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+i=ggplot(data = comp, aes(x = sp, y = chlca, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title="Chlorophyll c/a ratio", x="", y = "ug.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###Host.prot.cont
+comp_clean <- comp %>% drop_na(Host.prot.cont)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(Host.prot.cont, na.rm = TRUE))
+dist_mat <- dist(comp_clean$Host.prot.cont)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$Host.prot.cont, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+j=ggplot(data = comp, aes(x = sp, y = Host.prot.cont, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title="Total host protein content", x="", y = "ug.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###Tot.Lip.cont
+comp_clean <- comp %>% drop_na(Tot.Lip.cont)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(Tot.Lip.cont, na.rm = TRUE))
+dist_mat <- dist(comp_clean$Tot.Lip.cont)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$Tot.Lip.cont, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+k=ggplot(data = comp, aes(x = sp, y = Tot.Lip.cont, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title = "Total lipid content", x = "", y = "ug.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###In.cont
+comp$sp <- as.factor(comp$sp)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(In.cont, na.rm = TRUE))
+comp_clean <- comp %>% drop_na(In.cont)
+dist_mat <- dist(comp_clean$In.cont)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+print(kruskal_perm)
+pairwise_pvals <- pairwise.wilcox.test(comp$In.cont, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+l=ggplot(data = comp, aes(x = sp, y = In.cont, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title = "Inorganic content", x = "", y = "mg.mgAFDW-1") +
+  theme(legend.position = 'none')
+
+###Sk.dens
+comp$sp <- as.factor(comp$sp)
+value_max2 <- comp_clean %>%
+  group_by(sp) %>%
+  summarize(max_value = max(Sk.dens, na.rm = TRUE))
+comp_clean <- comp %>% drop_na(Sk.dens)
+dist_mat <- dist(comp_clean$Sk.dens)
+kruskal_perm <- adonis2(dist_mat ~ sp, data = comp_clean, permutations = 999)
+pairwise_pvals <- pairwise.wilcox.test(comp$Sk.dens, comp$sp,
+                                       p.adjust.method = "BH")
+pairwise_df <- as.data.frame(as.table(pairwise_pvals$p.value)) %>%
+  filter(!is.na(Freq)) %>%
+  mutate(Comparison = paste(Var1, Var2, sep = "-"),
+         P.adjusted = Freq)
+letters_df2 <- cldList(P.adjusted ~ Comparison, data = pairwise_df, threshold = 0.05)
+value_max2 <- value_max2 %>%
+  left_join(letters_df2, by = c("sp" = "Group"))
+m=ggplot(data = comp, aes(x = sp, y = Sk.dens, fill = sp)) + 
+  geom_boxplot() +
+  theme_classic() +
+  scale_fill_paletteer_d("PrettyCols::Autumn") +
+  geom_text(data = value_max2, aes(x = sp, y = max_value + 0.1, label = Letter),
+            size = 3, vjust = -0.5) +
+  labs(title="Skeleton density", x="", y = "g.cm-3") +
+  theme(legend.position = 'none')
+
+grid.arrange(a,b,c,d,e,f,g,h,i,j,k,l,m, ncol=5, nrow = 3)
+
+#Remove the lipids data as it was not measured by DePalmas et al 2025
+comp<-data[,-17]
+
+funspaceDim(comp[,7:18]) #retain the first 3 components
+pca.trait=princomp(comp[,7:18], cor = TRUE)
+
+#PC1 vs PC2
+# Trait space built from all groups
+trait_space_order12 <- funspace(pca.trait, PCs = c(1,2), group.vec = comp$Order,
+                                n_divisions = 300)
+
+#PC1 vs PC3
+trait_space_order13 = funspace(pca.trait, PCs = c(1,3), group.vec = comp$Order,
+                               n_divisions = 300)
+#PC1 vs PC3
+trait_space_order23 = funspace(pca.trait, PCs = c(2,3), group.vec = comp$Order,
+                               n_divisions = 300)
+#Region
+#PC1 vs PC2
+trait_space_region12 = funspace(pca.trait, PCs = c(1,2), group.vec = comp$region,
+                                n_divisions = 300)
+trait_space_region13 = funspace(pca.trait, PCs = c(1,3), group.vec = comp$region,
+                                n_divisions = 300)
+trait_space_region23 = funspace(pca.trait, PCs = c(2,3), group.vec = comp$region,
+                                n_divisions = 300)
+
+#PLOT
+par(mfrow = c(5,3), mar = c(4,4,1,1), mgp = c(2.5, 0.7, 0))
+
+#Plot scleractinia 
+plot(x = trait_space_order12,
+     type = "groups", # This still works, but will only plot Scleractinia if we restrict 'which'
+     which = "Scleractinia", # This argument selects the group to plot
+     quant.plot = TRUE,
+     globalContour = TRUE, # Shows the global trait space
+     pnt = TRUE,
+     pnt.cex = 0.5,
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8),
+     axis.title.line = 2,
+     repel = TRUE,
+     arrows = TRUE,
+     arrows.length = 1.1,
+     xlab=NULL)
+
+plot(x = trait_space_order13,
+     type = "groups", # a plot for each group (family)
+     which = "Scleractinia",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE, arrows = T, # add arrows for PCA loadings
+     arrows.length = 1.1,
+     main = NULL)
+plot(x = trait_space_order23,
+     type = "groups", # a plot for each group (family)
+     which = "Scleractinia",
+     quant.plot = T,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE, arrows = T, # add arrows for PCA loadings
+     arrows.length = 1.1,
+     main = NULL)
+
+#Plot P.profundacella Green Island
+plot(x = trait_space_region12,
+     type = "groups", # a plot for each group (family)
+     which = "GI_P.profundacella",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "Reds"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = "P.profundacella - Green Island")
+plot(x = trait_space_region13,
+     type = "groups", # a plot for each group (family)
+     which = "GI_P.profundacella",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "Reds"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+plot(x = trait_space_region23,
+     type = "groups", # a plot for each group (family)
+     which = "GI_P.profundacella",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "Reds"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+
+#Plot P.profundacella North Taiwan
+plot(x = trait_space_region12,
+     type = "groups", # a plot for each group (family)
+     which = "NT_P.profundacella",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "PuBu"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = "P.profundacella - Green Island")
+plot(x = trait_space_region13,
+     type = "groups", # a plot for each group (family)
+     which = "NT_P.profundacella",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "PuBu"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+plot(x = trait_space_region23,
+     type = "groups", # a plot for each group (family)
+     which = "NT_P.profundacella",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "PuBu"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+
+#Plot S.Pistillata Green Island
+plot(x = trait_space_region12,
+     type = "groups", # a plot for each group (family)
+     which = "GI_S.pistillata",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "Reds"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = "P.profundacella - Green Island")
+plot(x = trait_space_region13,
+     type = "groups", # a plot for each group (family)
+     which = "GI_S.pistillata",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "Reds"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+plot(x = trait_space_region23,
+     type = "groups", # a plot for each group (family)
+     which = "GI_S.pistillata",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "Reds"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+
+#Plot S.pistillata North Taiwan
+plot(x = trait_space_region12,
+     type = "groups", # a plot for each group (family)
+     which = "NT_S.pistillata",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "PuBu"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = "P.profundacella - Green Island")
+plot(x = trait_space_region13,
+     type = "groups", # a plot for each group (family)
+     which = "NT_S.pistillata",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "PuBu"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+plot(x = trait_space_region23,
+     type = "groups", # a plot for each group (family)
+     which = "NT_S.pistillata",
+     quant.plot = TRUE,
+     globalContour = T, # The contour of the global TPD
+     pnt = T, # add points for species of each family
+     pnt.cex = 0.5,
+     col=brewer.pal(n = 3, name = "PuBu"),# plot the global TPD
+     pnt.col = rgb(0.2, 0.8, 0.7, alpha = 0.8), # colour for points
+     axis.title.line = 2,
+     repel = TRUE,
+     main = NULL)
+
+#########PERMANOVA###########
+# Data Preparation
+scaled_data <- scale(comp[,7:18])  # Standardize excluding species column
+# Dissimilarity Matrix
+dist_matrix <- vegdist(scaled_data, method = "euclidean")
+# Test region
+adonis_result <- adonis2(dist_matrix ~ region, data = comp)
+print(adonis_result)#0.001 ***
+#Pairwise test region
+pair.mod<-pairwise.adonis(dist_matrix,factors=comp$region)
+pair.mod
+#Pairwise test species
+pairwise.adonis(dist_matrix,factors=comp$species)
+
+trait_data=comp[,c(-2,-3,-4,-5,-6)]
+#Indices species
+# Separate trait data from species identifiers
+traits <- trait_data[, 2:13]
+species <- trait_data$species
+# Step 1: Create a functional space from continuous traits
+fspace <- tr.cont.fspace(
+  sp_tr        = traits, 
+  pca          = T, 
+  nb_dim       = 10, 
+  scaling      = 'scale_center',
+  compute_corr = 'pearson')
+print(fspace$eigenvalues_percentage_var)
+# Inspect mSD values
+detailmSD=fspace$quality_metrics[1:9,2]
+print(detailmSD)
+# Create the presence-absence matrix for each species
+species = comp$species
+unique_species <- unique(species)
+abundance_matrix <- matrix(0, nrow = length(unique_species), ncol = nrow(traits))
+rownames(abundance_matrix) <- unique_species
+colnames(abundance_matrix) <- rownames(traits)
+for (i in 1:length(unique_species)) {
+  reg <- unique_species[i]
+  abundance_matrix[i, species == reg] <- 1  # Mark presence (1) for individuals of this species
+}
+# Ensure matrix is numeric
+abundance_matrix <- as.numeric(abundance_matrix)
+dim(abundance_matrix) <- c(length(unique_species), nrow(traits))
+rownames(abundance_matrix) <- unique_species
+colnames(abundance_matrix) <- rownames(traits)
+# Step 2: Compute alpha dtraits# Step 2: Compute alpha diversity metrics in the multidimensional functional space
+# community_data should be a matrix or data frame with species presence/abundance in sites
+sp_faxes_coord <- fspace$sp_faxes_coord
+alpha_index=alpha.fd.multidim(sp_faxes_coord   = sp_faxes_coord[, c('PC1', 'PC2','PC3')],
+                              asb_sp_w         = abundance_matrix, 
+                              ind_vect         = c('feve', 'fric', 'fdiv','fdis'),
+                              scaling          = TRUE, 
+                              check_input      = TRUE, 
+                              details_returned = TRUE)
+# Retrieve alpha diversity indices table
+fd_ind_values <- alpha_index$functional_diversity_indices
+fd_ind_values
+
+#Indices Region
+# Separate trait data from species identifiers
+traits <- trait_data[, 2:13]
+region <- trait_data$region
+# Step 1: Create a functional space from continuous traits
+fspace <- tr.cont.fspace(
+  sp_tr        = traits, 
+  pca          = T, 
+  nb_dim       = 10, 
+  scaling      = 'scale_center',
+  compute_corr = 'pearson')
+print(fspace$eigenvalues_percentage_var)
+# Inspect mSD values
+detailmSD=fspace$quality_metrics[1:9,2]
+print(detailmSD)
+# Create the presence-absence matrix for each species
+region = comp$region
+unique_region <- unique(region)
+abundance_matrix <- matrix(0, nrow = length(unique_region), ncol = nrow(traits))
+rownames(abundance_matrix) <- unique_region
+colnames(abundance_matrix) <- rownames(traits)
+for (i in 1:length(unique_region)) {
+  reg <- unique_region[i]
+  abundance_matrix[i, region == reg] <- 1  # Mark presence (1) for individuals of this species
+}
+# Ensure matrix is numeric
+abundance_matrix <- as.numeric(abundance_matrix)
+dim(abundance_matrix) <- c(length(unique_region), nrow(traits))
+rownames(abundance_matrix) <- unique_region
+colnames(abundance_matrix) <- rownames(traits)
+# Step 2: Compute alpha dtraits# Step 2: Compute alpha diversity metrics in the multidimensional functional space
+# community_data should be a matrix or data frame with species presence/abundance in sites
+sp_faxes_coord <- fspace$sp_faxes_coord
+alpha_index=alpha.fd.multidim(sp_faxes_coord   = sp_faxes_coord[, c('PC1', 'PC2','PC3')],
+                              asb_sp_w         = abundance_matrix, 
+                              ind_vect         = c('feve', 'fric', 'fdiv','fdis'),
+                              scaling          = TRUE, 
+                              check_input      = TRUE, 
+                              details_returned = TRUE)
+# Retrieve alpha diversity indices table
+fd_ind_values <- alpha_index$functional_diversity_indices
+fd_ind_values
+
+comp=comp %>% filter(region %in% c("GI_P.profundacella","NT_P.profundacella", "GI_S.pistillata", "NT_S.pistillata"))
+comp[comp == "GI_P.profundacella"] <- "GI"
+comp[comp == "NT_P.profundacella"] <- "NT"
+comp[comp == "GI_S.pistillata"] <- "GI"
+comp[comp == "NT_S.pistillata"] <- "NT"
+comp[comp == "Psammocora_profundacella"] <- "Ps. profundacella"
+comp[comp == "Stylophora_pistillata"] <- "S. pistillata"
+
+#Delta13C
+# Ensure factors
+comp$species <- as.factor(comp$species)
+comp$region <- as.factor(comp$region)
+# Step 1: Permutation Wilcoxon test per species using coin + purrr
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(Delta13C ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+# Step 2: y-position for annotation
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(Delta13C)-0.5)
+# Step 3: Merge for annotation
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+# Step 4: Plot
+a=ggplot(comp, aes(x = species, y = Delta13C, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Host δ13C",
+       x = "", y = "‰") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#Delta15N
+# Step 1: Permutation Wilcoxon test per species using coin + purrr
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(Delta15N ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+# Step 2: y-position for annotation
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(Delta15N)-0.2)
+# Step 3: Merge for annotation
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+# Step 4: Plot
+b=ggplot(comp, aes(x = species, y = Delta15N, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Host δ15N",
+       x = "", y = "‰") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#ratio.C.N
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(ratio.C.N ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(ratio.C.N)-0.2)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+c=ggplot(comp, aes(x = species, y = ratio.C.N, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "C/N ratio",
+       x = "", y = "Ratio") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#Z.dens
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(Z.dens ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(Z.dens)-50000000)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+d=ggplot(comp, aes(x = species, y = Z.dens, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Zooxanthellae density",
+       x = "", y = "cell.ugAFDW-1") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#C.dens
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(C.dens ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(C.dens)-50000000)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+e=ggplot(comp, aes(x = species, y = C.dens, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Cnidocytes density",
+       x = "", y = "cell.ugAFDW-1") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#chla
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(chla ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(chla)-300)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+f=ggplot(comp, aes(x = species, y = chla, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Chlorophyll-a content",
+       x = "", y = "ug.mgAFDW-1") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#chlb
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(chlb ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(chlb)-100)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+g=ggplot(comp, aes(x = species, y = chlb, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Chlorophyll-b content",
+       x = "", y = "ug.mgAFDW-1") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#chlc
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(chlc ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(chlc)-100)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+h=ggplot(comp, aes(x = species, y = chlc, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Chlorophyll-a content",
+       x = "", y = "ug.mgAFDW-1") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#chlca
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(chlca ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(chlca)-0.02)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+
+i=ggplot(comp, aes(x = species, y = chlca, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Chlorophyll c/a ratio",
+       x = "", y = "ratio") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#Host.prot.cont
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(Host.prot.cont ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(Host.prot.cont)-10000)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+j=ggplot(comp, aes(x = species, y = Host.prot.cont, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Total host protein content",
+       x = "", y = "ug.mgAFDW-1") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+#Sk.dens
+species_list <- unique(comp$species)
+perm_results <- map_dfr(species_list, function(sp_name) {
+  data_sub <- comp %>% filter(species == sp_name)
+  test <- coin::wilcox_test(Sk.dens ~ region, data = data_sub,
+                            distribution = coin::approximate(nresample = 9999))
+  tibble(
+    species = sp_name,
+    p = as.numeric(coin::pvalue(test))
+  )
+}) %>%
+  mutate(
+    p.adj = p.adjust(p, method = "BH"),
+    p.adj.signif = case_when(
+      p.adj <= 0.0001 ~ "****",
+      p.adj <= 0.001 ~ "***",
+      p.adj <= 0.01 ~ "**",
+      p.adj <= 0.05 ~ "*",
+      TRUE ~ "ns"))
+positions <- comp %>%
+  group_by(species) %>%
+  summarise(y.position = max(Sk.dens)-0.1)
+perm_results <- perm_results %>%
+  left_join(positions, by = "species")
+k=ggplot(comp, aes(x = species, y = Sk.dens, fill = region)) +
+  geom_boxplot(position = position_dodge(0.8), width = 0.6) +
+  scale_fill_manual(values = c("NT" = "#3A488AFF",
+                               "GI" = "#BE3428FF"))+
+  geom_text(data = perm_results,
+            aes(x = species, y = y.position, label = p.adj.signif),
+            inherit.aes = FALSE, size = 4, vjust = -0.5) +
+  labs(title = "Skeleton density",
+       x = "", y = "g.cm-3") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    legend.position = "none")
+
+grid.arrange(a,b,c,d,e,f,g,h,i,j,k, ncol=3, nrow = 4)
+
