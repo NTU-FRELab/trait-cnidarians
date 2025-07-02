@@ -50,16 +50,17 @@ knitr::purl("Guerbetetal_2025.Rmd", documentation = F)
 # **Dataset**
 
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-comp<-read.table("data/data.txt", header = T, sep = "", dec = ".")
-row.names(comp)=comp$sample_no
-row.names(comp)=comp$sample_no
-comp$sample_no=NULL
+data<-read.table("Data.txt", header = T, sep = "", dec = ".")
+row.names(data)=data$sample_no
+data$sample_no=NULL
+#Keep only Guerbet_et_al samples
+comp=data[194:312,]
 ```
 
 # **Trait space**
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-funspaceDim(comp[,5:17]) #retain the first 3 components
-pca.trait=princomp(comp[,5:17], cor = TRUE)
+funspaceDim(comp[,7:19])
+pca.trait=princomp(comp[,7:19], cor = TRUE)
 
 #Global
 trait_space_global=funspace(x = pca.trait, PCs = c(1,2), n_divisions = 300)
@@ -104,7 +105,7 @@ plot(x = trait_space_species,
 
 #Permanova
 # Data Preparation
-scaled_data <- scale(comp[,5:17])  # Standardize excluding species column
+scaled_data <- scale(comp[,7:19])  # Standardize excluding species column
 # Dissimilarity Matrix
 dist_matrix <- vegdist(scaled_data, method = "euclidean")
 # Test
@@ -118,7 +119,7 @@ pair.mod
 # **FUNCTIONAL DIVERSITY INDICES**
 
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-trait_data=comp[,c(-2,-3,-4)]
+trait_data=comp[,c(-2,-3,-4,-5,-6)]
 
 # Separate trait data from species identifiers
 traits <- trait_data[, 2:14]
@@ -175,13 +176,13 @@ fd_ind_values
 
 # *CLUSTERING*
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-df <- scale(comp[,5:17]) # Scaling the data
+df <- scale(comp[,7:19]) # Scaling the data
 df=as.matrix(df)
 pca_result <- prcomp(df, scale. = TRUE)
 
 # Extract PCA scores
 pca_scores <- as.data.frame(pca_result$x)
-pca_scores$Sample <- rownames(data)
+pca_scores$Sample <- rownames(comp)
 
 res<-NbClust(data = na.omit(df), diss = NULL, distance = "euclidean",
              min.nc = 2, max.nc = 15, method = "kmeans", index="all", alphaBeale = 0.05)
@@ -191,7 +192,7 @@ optimal_clusters <- res$Best.partition
 comp$cluster=optimal_clusters
 
 #PERMANOVA
-scaled_data <- scale(comp[,5:17])  # Standardize excluding species column
+scaled_data <- scale(comp[,7:19])  # Standardize excluding species column
 dist_matrix <- vegdist(scaled_data, method = "euclidean")
 adonis_result <- adonis2(dist_matrix ~ cluster, data = comp)
 print(adonis_result)
@@ -577,15 +578,13 @@ grid.arrange(a,b,c,d,e,f,g,h,i,j,k,l,m, ncol=5, nrow = 3)
 
 # *ADD DATA FROM DEPALMAS ET AL 2025*
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-comp<-read.table("data/Data_DePalmas.txt", header = T, sep = "", dec = ".")
-row.names(comp)=comp$sample_no
-comp$sample_no=NULL
+comp<-data[,-17]
 ```
 
 # *OVERALL AND PER REGION FUNCTIONAL SPACE *
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-funspaceDim(comp[,5:16]) #retain the first 3 components
-pca.trait=princomp(comp[,5:16], cor = TRUE)
+funspaceDim(comp[,7:18]) #retain the first 3 components
+pca.trait=princomp(comp[,7:18], cor = TRUE)
 
 #PC1 vs PC2
 # Trait space built from all groups
@@ -806,7 +805,7 @@ plot(x = trait_space_region23,
 
 #########PERMANOVA###########
 # Data Preparation
-scaled_data <- scale(comp[,5:16])  # Standardize excluding species column
+scaled_data <- scale(comp[,7:18])  # Standardize excluding species column
 # Dissimilarity Matrix
 dist_matrix <- vegdist(scaled_data, method = "euclidean")
 # Test region
@@ -821,7 +820,7 @@ pairwise.adonis(dist_matrix,factors=comp$species)
 
 # *FUNCTIONAL INDICES PER REGION*
 ```{r eval = TRUE, echo=T, message=F, warning=F}
-trait_data=comp[,-1:-3]
+trait_data=comp[,c(-2,-3,-4,-5,-6)]
 #Indices species
 # Separate trait data from species identifiers
 traits <- trait_data[, 2:13]
