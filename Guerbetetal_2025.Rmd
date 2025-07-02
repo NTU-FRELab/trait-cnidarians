@@ -1,5 +1,5 @@
 ---
-title: "Guerbetetal_Analysis"
+title: "Data Analysis: Comparative analysis of organismal trait variation in benthic cnidarians "
 author: "Guerbet et al."
 date: "2025-06-24"
 output:
@@ -29,7 +29,7 @@ library(mFD)
 # Clustering
 library(NbClust)
 library(stats)  # Base R, but included for clarity
-# PCA and Visualizations
+# PCA and Visualizations.
 library(ggplot2)
 library(ggpubr)
 library(factoextra)
@@ -578,6 +578,7 @@ grid.arrange(a,b,c,d,e,f,g,h,i,j,k,l,m, ncol=5, nrow = 3)
 
 # *ADD DATA FROM DEPALMAS ET AL 2025*
 ```{r eval = TRUE, echo=T, message=F, warning=F}
+#Remove the lipids data as it was not measured by DePalmas et al 2025
 comp<-data[,-17]
 ```
 

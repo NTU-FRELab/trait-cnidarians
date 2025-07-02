@@ -17,7 +17,7 @@ library(mFD)
 # Clustering
 library(NbClust)
 library(stats)  # Base R, but included for clarity
-# PCA and Visualizations
+# PCA and Visualizations.
 library(ggplot2)
 library(ggpubr)
 library(factoextra)
@@ -542,6 +542,7 @@ m=ggplot(data = comp, aes(x = sp, y = Sk.dens, fill = sp)) +
 
 grid.arrange(a,b,c,d,e,f,g,h,i,j,k,l,m, ncol=5, nrow = 3)
 
+#Remove the lipids data as it was not measured by DePalmas et al 2025
 comp<-data[,-17]
 
 funspaceDim(comp[,7:18]) #retain the first 3 components
