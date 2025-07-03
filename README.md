@@ -20,11 +20,9 @@ This README file was generated on 2025/07/03 by Arnaud Guerbet (arnaud.guerbet@h
 4. **Funding sources that supported the collection of the data:** National Science and Technology Council of Taiwan, Ministry of Science and Technology of Taiwan
 5. **Recommended citation for this dataset:** Guerbet, A., Chung, M. T., L, Wang, P. L., Denis, V. [...]. Data from: Comparative analysis of organismal trait variation in benthic cnidarians, Dataset.
 
-***DESCRIPTION OF THE DATA AND FILE STRUCTURE***
 
--------------------------------------------------------------
 
-**DATA & FILE OVERVIEW**
+**DATA OVERVIEW**
 
 *Description of dataset*
 
