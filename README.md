@@ -20,15 +20,18 @@ This README file was generated on 2025/07/03 by Arnaud Guerbet (arnaud.guerbet@h
 4. **Funding sources that supported the collection of the data:** National Science and Technology Council of Taiwan, Ministry of Science and Technology of Taiwan
 5. **Recommended citation for this dataset:** Guerbet, A., Chung, M. T., L, Wang, P. L., Denis, V. [...]. Data from: Comparative analysis of organismal trait variation in benthic cnidarians, Dataset.
 
-***DESCRIPTION OF THE DATA***
+***DESCRIPTION OF THE DATA AND FILE STRUCTURE***
+
+-------------------------------------------------------------
+
+**DATA & FILE OVERVIEW**
+*Description of dataset*
 This dataset represents a set of 13 organismal traits from 19 cnidarian species collected in this current study and in DePalmas et al, 2025. 
 
-***METHODOLOGICAL INFORMATION***
+*Methodological information*
 A detailed description of data acquisition and processing can be found in the submitted manuscript.
 
-**DATA-SPECIFIC INFORMATION**
-
-*complexity_metrics.csv*
+*Data information*
 1. Number of columns: 20
 2. Number of individuals/rows: 312
 3. Missing data codes: NA
