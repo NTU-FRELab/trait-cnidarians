@@ -25,22 +25,49 @@ This README file was generated on 2025/07/03 by Arnaud Guerbet (arnaud.guerbet@h
 -------------------------------------------------------------
 
 **DATA & FILE OVERVIEW**
+
 *Description of dataset*
+
 This dataset represents a set of 13 organismal traits from 19 cnidarian species collected in this current study and in DePalmas et al, 2025. 
 
 *Methodological information*
+
 A detailed description of data acquisition and processing can be found in the submitted manuscript.
 
 *Data information*
+
 1. Number of columns: 20
 2. Number of individuals/rows: 312
 3. Missing data codes: NA
 4. Variable List
-* Column A - Species: names of species / OTU
-* Column B - Order: names of the order
-* Column C - sp: species / OTU names abbreviation
-* Column D - sample_no: names of the samples
-* Column E - region: region where samples of species Psammocora profundacella and Stylophora pistillata were collected 
+   * Column A - Species: names of species / OTU
+   * Column B - Order: names of the order
+   * Column C - sp: species / OTU names abbreviation
+   * Column D - sample_no: names of the samples
+   * Column E - region: region where samples of species Psammocora profundacella and Stylophora pistillata were collected
+   * Column F - Depth: depth at which samples were collected
+   * Column G - Study: studies where the samples were extracted
+   * Column H - Delta15N: value of δ15 Nitrogen for the cnidarian host 
+   * Column I - Delta13C: value of δ13 Carbone for the cnidarian host
+   * Column J - ratio.C.N: value of the isotopic ratio carbon/nitrogen
+   * Column K - Z.dens: value of endosymbiotic Algae density
+   * Column L - C.dens: value of cnidocyte density
+   * Column M - chla: value of chlorophyll-a concentration
+   * Column N - chlb: value of chlorophyll-b concentration
+   * Column O - chlc: value of chlorophyll-c concentration
+   * Column P - chlca: value of the ratio chlorophyll-a/chlorophyll-c
+   * Column Q - Host.prot.cont: value of the cnidarian host protein content
+   * Column R - Tot.Lip.cont: value of the total lipid content
+   * Column S - In.cont: value of the inorganic content in soft tissue (sclerite or sand for Palythoa tuberculosa)
+   * Column T - Sk.dens: value of skeleton density
+  
+
+
+
+
+
+
+
 
 
 
