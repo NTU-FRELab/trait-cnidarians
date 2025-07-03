@@ -22,17 +22,17 @@ This README file was generated on 2025/07/03 by Arnaud Guerbet (arnaud.guerbet@h
 
 
 
-**DATA OVERVIEW**
+***DATA OVERVIEW***
 
-*Description of dataset*
+**Description of dataset**
 
 This dataset represents a set of 13 organismal traits from 19 cnidarian species collected in this current study and in DePalmas et al, 2025. 
 
-*Methodological information*
+**Methodological information**
 
 A detailed description of data acquisition and processing can be found in the submitted manuscript.
 
-*Data information*
+**Data information**
 
 1. Number of columns: 20
 2. Number of individuals/rows: 312
