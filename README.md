@@ -58,11 +58,11 @@ A detailed description of data acquisition and processing can be found in the su
       * Column S - In.cont: value of the inorganic content in soft tissue (sclerite or sand for Palythoa tuberculosa)
       * Column T - Sk.dens: value of skeleton density  
 
+***DATA USAGE***
 
-
-
-
-
+GUERBET ET AL. SUBMITTED [ORIGINAL DATA + DE PALMAS ET AL. 2025]  
+|
+|_GUERBET ET AL. IN PREP (!)
 
 
 
