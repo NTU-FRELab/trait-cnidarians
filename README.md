@@ -61,7 +61,7 @@ A detailed description of data acquisition and processing can be found in the su
 ***DATA USAGE***
 
 GUERBET ET AL. SUBMITTED [ORIGINAL DATA + DE PALMAS ET AL. 2025]  
-|
+| 
 |_GUERBET ET AL. IN PREP (!)
 
 
