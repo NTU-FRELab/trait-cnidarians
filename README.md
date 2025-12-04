@@ -1,5 +1,5 @@
 ## Data from: Comparative analysis of organismal trait variation in benthic cnidarians 
-This README file was generated on 2025/07/03 by Arnaud Guerbet (arnaud.guerbet@hotmail.fr). Knit Guerbetetal_2025.Rmd to generate html and extract R code (Latest update on 2025/07/03).
+This README file was generated on 2025/04/12 by Arnaud Guerbet (arnaud.guerbet@hotmail.fr). Knit Guerbetetal_2025.Rmd to generate html and extract R code (Latest update on 2025/07/03).
 1. **Author Information**
    - First author
       - Name: Mr. Arnaud Guerbet
@@ -16,20 +16,20 @@ This README file was generated on 2025/07/03 by Arnaud Guerbet (arnaud.guerbet@h
       - Email: vianneydenis@ntu.edu.tw
      
 2. **Date of data collection:** June to July 2022 / March to August 2023
-3. **Geographic location of data collection:** XiaoLiuqiu Island, Green Island and North Coast of Taiwan, West Pacific.
+3. **Geographic location of data collection:** XiaoLiuqiu Island, Green Island, and the North Coast of Taiwan, West Pacific.
 4. **Funding sources that supported the collection of the data:** National Science and Technology Council of Taiwan, Ministry of Science and Technology of Taiwan
-5. **Recommended citation for this dataset:** Guerbet, A., Chung, M. T., L, Wang, P. L., Denis, V. [...]. Data from: Comparative analysis of organismal trait variation in benthic cnidarians, Dataset.
+5. **Recommended citation for this dataset:** Guerbet, A., Chung, M. T., L, Wang, P. L., Denis, V. [2025]. Data from: Comparative analysis of organismal trait variation in benthic cnidarians, Dataset.
 
 
 ***DATA OVERVIEW***
 
 1. **Description of dataset**
 
-This dataset represents a set of 13 organismal traits from 19 cnidarian species collected in this current study and in DePalmas et al, 2025. 
+This dataset represents a set of 13 organismal traits from 19 cnidarian species collected in the current study and in De Palmas et al. (2025; https://doi.org/10.1007/s00338-025-02617-w). 
 
 2. **Methodological information**
 
-A detailed description of data acquisition and processing can be found in the submitted manuscript.
+A detailed description of data acquisition and processing can be found in the published study.
 
 3. **Data information**
 
