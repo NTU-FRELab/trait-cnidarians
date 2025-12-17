@@ -18,10 +18,10 @@ This README file was generated on 2025/04/12 by Arnaud Guerbet (arnaud.guerbet@h
 2. **Date of data collection:** June to July 2022 / March to August 2023
 3. **Geographic location of data collection:** XiaoLiuqiu Island, Green Island, and the North Coast of Taiwan, West Pacific.
 4. **Funding sources that supported the collection of the data:** National Science and Technology Council of Taiwan, Ministry of Science and Technology of Taiwan
-5. **Recommended citation for this dataset:** Guerbet A, Chung MT, Wang PL, Denis V (2025) Data from: Comparative analysis of organismal trait variation in benthic cnidarians [Dataset]. Zenodo. https://doi.org/(...)
+5. **Recommended citation for this dataset:** Guerbet A, Chung MT, Wang PL, Denis V (2025) Data from: Comparative analysis of organismal trait variation in benthic cnidarians [Dataset]. Zenodo. https://doi.org/10.5281/zenodo.17961062
 6. **Associated manuscript:** Guerbet A, Chung MT, Wang PL, Denis V (2025) Comparative analysis of organismal trait variation in benthic cnidarians. Coral Reefs. https://doi.org/10.1007/s00338-025-02805-8
 
-[The data set and the R script are available through Zenodo (https://doi.org/...) and the GitHub repository (https://github.com/NTU-FRELab/trait-cnidarians.git) in order to replicate our analyses].
+[The data set and the R script are available through Zenodo (https://doi.org/10.5281/zenodo.17961062) and the GitHub repository (https://github.com/NTU-FRELab/trait-cnidarians.git) in order to replicate our analyses].
 
 ***DATA OVERVIEW***
 
